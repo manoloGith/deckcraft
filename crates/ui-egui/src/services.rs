@@ -11,6 +11,9 @@ pub type OpenAsyncFn = Box<dyn FnMut(&str, u64)>;
 
 pub type DownloadFn = Box<dyn FnMut(&str, &[u8])>;
 
+/// [`Services::below_ribbon`]: draws between the ribbon and the slide area.
+pub type BelowRibbonFn = Box<dyn FnMut(&mut crate::SlideApp, &mut egui::Ui)>;
+
 /// [`Services::host_save`]: `(file name, bytes, save_as)`. An error means the page didn't get
 /// the file, and the save failed.
 pub type HostSaveFn = Box<dyn FnMut(&str, &[u8], bool) -> Result<(), String>>;
@@ -73,4 +76,14 @@ pub struct Services {
     pub audio_out: Option<Box<dyn deckcraft_media::AudioOut>>,
     /// How many displays are connected, when the host can tell: Presenter View needs a second.
     pub displays: Option<Box<dyn FnMut() -> Option<usize>>>,
+    /// The pickers answer later, for a host whose picker the interface thread can't wait for
+    /// (on Android it is another activity, and the activity's pause waits for that thread).
+    /// `pick_open` and `pick_save` then show the picker and return `None` at once, and the chosen
+    /// path arrives here; an empty path is a dismissed picker. DeckCraft runs what asked for the
+    /// picker again with that path ([`SlideApp::poll_picked`](crate::SlideApp::poll_picked)).
+    pub picked_later: Option<std::sync::mpsc::Receiver<String>>,
+    /// Drawn below the ribbon and above the slides while a presentation is edited (not on the
+    /// File tab's view or during a slide show): a host that shows every presentation in one
+    /// window draws its document tabs here, and runs DeckCraft's commands for what is clicked.
+    pub below_ribbon: Option<BelowRibbonFn>,
 }

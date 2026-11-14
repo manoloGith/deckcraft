@@ -107,6 +107,8 @@ impl SlideApp {
             twisting: false,
             next_file_id: 1,
             pending_files: Vec::new(),
+            asked: None,
+            picked: None,
             host_start: None,
             ime_tracker: egui::ime_context::ImeContextTracker::new(),
             ime_pending: None,
@@ -235,6 +237,7 @@ impl SlideApp {
             // Inbox results are host file bytes and do not need fonts or a painted frame. A
             // window that starts hidden must still apply a file picked before its first UI pass.
             self.drain_inbox();
+            self.poll_picked();
         }
         self.drain_screenshots();
         // `raw_input_hook` ran before this logic pass. This is normally a no-op now that
@@ -320,6 +323,11 @@ impl SlideApp {
         ribbon::title_bar(self, ui);
         if self.backstage.is_none() && self.session.active().is_some() {
             ribbon::show(self, ui);
+            // The host's row (document tabs). Taken out while it draws: it gets the whole app.
+            if let Some(mut below) = self.services.below_ribbon.take() {
+                below(self, ui);
+                self.services.below_ribbon.get_or_insert(below);
+            }
             status::status_bar(self, ui);
         }
         let now = ui.input(|i| i.time);

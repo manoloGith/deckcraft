@@ -204,8 +204,8 @@ impl SlideApp {
             }
         };
         let suggested = self.suggested_name(ext);
-        if let Some(pick) = self.services.pick_save.as_mut() {
-            let Some(path) = pick(&suggested) else { return false };
+        if self.services.pick_save.is_some() {
+            let Some(path) = self.pick_save(&suggested, Again::Export { fmt: fmt.to_string(), extra: extra.clone() }) else { return false };
             let mut params = json!({"path": path, "format": format, "all": all});
             if let (Some(o), Some(x)) = (params.as_object_mut(), extra.as_object()) {
                 o.extend(x.clone());
@@ -293,8 +293,8 @@ impl SlideApp {
     }
 
     pub(crate) fn pick_and_open(&mut self) {
-        if let Some(pick) = self.services.pick_open.as_mut() {
-            if let Some(path) = pick("open") {
+        if self.services.pick_open.is_some() {
+            if let Some(path) = self.pick_open("open", Again::Open) {
                 self.open_path_in_background(&path);
             }
         } else if self.services.open_async.is_some() {
@@ -351,11 +351,11 @@ impl SlideApp {
     /// Home › New Slide › Reuse Slides…: pick a presentation and insert all its slides after the
     /// current one (desktop only: the browser picker opens what it picks as a document).
     pub(super) fn pick_and_reuse(&mut self, keep: bool) {
-        let Some(pick) = self.services.pick_open.as_mut() else {
+        if self.services.pick_open.is_none() {
             self.set_status("Reuse Slides needs the desktop app".to_string());
             return;
-        };
-        let Some(path) = pick("open") else { return };
+        }
+        let Some(path) = self.pick_open("open", Again::Reuse { keep }) else { return };
         // Read the file once: the list shown and the slides inserted come from the same bytes, even
         // if the file changes while the dialog is open. Without a reader the path is used as is.
         let mut source = json!({});
@@ -414,8 +414,9 @@ impl SlideApp {
 
     /// Pick a file and run `cmd` with it (`name` + `data`, or `path`) added to `extra`.
     pub(super) fn pick_and_run(&mut self, purpose: &str, cmd: &str, extra: &Value) {
-        if let Some(pick) = self.services.pick_open.as_mut() {
-            if let Some(path) = pick(purpose) {
+        if self.services.pick_open.is_some() {
+            let again = Again::Run { purpose: purpose.to_string(), cmd: cmd.to_string(), extra: extra.clone() };
+            if let Some(path) = self.pick_open(purpose, again) {
                 let mut args = if extra.is_object() { extra.clone() } else { json!({}) };
                 let r = match self.services.read.as_ref().map(|r| r(&path)) {
                     Some(Ok(bytes)) => {
@@ -451,8 +452,8 @@ impl SlideApp {
         let name = self.session.active().map(|d| d.title()).unwrap_or_else(|| "Presentation".into());
         let ext = if format == "pptx" { "pptx" } else { "deckcraft" };
         let suggested = format!("{name}.{ext}");
-        if let Some(pick) = self.services.pick_save.as_mut() {
-            if let Some(path) = pick(&suggested) {
+        if self.services.pick_save.is_some() {
+            if let Some(path) = self.pick_save(&suggested, Again::SaveAs { format: format.to_string() }) {
                 match self.session.execute("file.saveAs", &json!({"path": path})) {
                     Ok(_) => {
                         self.set_status(format!("Saved {path}"));
@@ -818,6 +819,76 @@ pub(crate) fn web_image_files(
             (file, bytes)
         })
         .collect()
+}
+
+/// What asked for a file picker, kept to run it again when a host whose pickers answer later
+/// ([`Services::picked_later`](crate::Services::picked_later)) sends the chosen path.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum Again {
+    /// File › Open.
+    Open,
+    /// Home › New Slide › Reuse Slides.
+    Reuse { keep: bool },
+    /// [`SlideApp::pick_and_run`]: a picked file as a command's parameter.
+    Run { purpose: String, cmd: String, extra: Value },
+    /// Format Shape › Fill › Picture.
+    FillPicture,
+    /// Format Background › Picture.
+    BackgroundPicture,
+    /// Photo Album › Add Pictures.
+    AlbumPicture,
+    /// [`SlideApp::export_as`].
+    Export { fmt: String, extra: Value },
+    /// [`SlideApp::save_as_dialog`].
+    SaveAs { format: String },
+}
+
+impl SlideApp {
+    /// The open picker's answer for `purpose`. A host whose pickers answer later returns `None`
+    /// now; `again` then runs once the path has arrived, and gets it from this same call.
+    pub(crate) fn pick_open(&mut self, purpose: &str, again: Again) -> Option<String> {
+        if let Some(path) = self.picked.take() {
+            return Some(path);
+        }
+        let path = self.services.pick_open.as_mut()?(purpose);
+        self.asked = (path.is_none() && self.services.picked_later.is_some()).then_some(again);
+        path
+    }
+
+    /// The save picker's answer for the `suggested` name; see [`Self::pick_open`].
+    pub(crate) fn pick_save(&mut self, suggested: &str, again: Again) -> Option<String> {
+        if let Some(path) = self.picked.take() {
+            return Some(path);
+        }
+        let path = self.services.pick_save.as_mut()?(suggested);
+        self.asked = (path.is_none() && self.services.picked_later.is_some()).then_some(again);
+        path
+    }
+
+    /// A picker that answers later has answered: run what asked for it again, now with the path.
+    /// An empty path (a dismissed picker) forgets what asked, as does an answer nobody waits for.
+    pub fn poll_picked(&mut self) {
+        let Some(path) = self.services.picked_later.as_ref().and_then(|rx| rx.try_recv().ok()) else { return };
+        let Some(again) = self.asked.take() else { return };
+        if path.is_empty() {
+            return;
+        }
+        self.picked = Some(path);
+        match again {
+            Again::Open => self.pick_and_open(),
+            Again::Reuse { keep } => self.pick_and_reuse(keep),
+            Again::Run { purpose, cmd, extra } => self.pick_and_run(&purpose, &cmd, &extra),
+            Again::FillPicture => crate::panels::pick_fill_picture(self),
+            Again::BackgroundPicture => crate::panels::pick_background_picture(self),
+            Again::AlbumPicture => crate::dialogs::add_album_picture(self),
+            Again::Export { fmt, extra } => {
+                self.export_as(&fmt, extra);
+            }
+            Again::SaveAs { format } => self.save_as_dialog(&format),
+        }
+        // Whatever ran did not ask (the presentation was closed meanwhile): the answer is spent.
+        self.picked = None;
+    }
 }
 
 #[cfg(test)]

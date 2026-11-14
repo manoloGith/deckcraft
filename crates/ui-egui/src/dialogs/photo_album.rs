@@ -20,8 +20,8 @@ fn album_item_label(v: &Value) -> String {
 }
 
 fn pick_album_picture(app: &mut SlideApp) -> Option<Value> {
-    let path = if let Some(pick) = app.services.pick_open.as_mut() {
-        pick("picture")
+    let path = if app.services.pick_open.is_some() {
+        app.pick_open("picture", crate::app::files::Again::AlbumPicture)
     } else {
         app.set_status("Pass pictures to insert.photoAlbum");
         None
@@ -148,6 +148,29 @@ fn with_selected_picture(d: &mut Dialog, f: impl FnOnce(&mut serde_json::Map<Str
     store_album_items(d, &list);
 }
 
+/// Add Pictures…: ask for a picture and append it to the album's list.
+fn add_picture(app: &mut SlideApp, d: &mut Dialog) {
+    let Some(item) = pick_album_picture(app) else { return };
+    match album_items(d) {
+        Some(mut list) if list.len() < 48 => {
+            list.push(item);
+            let next = list.len().saturating_sub(1);
+            store_album_items(d, &list);
+            d.fields.insert("sel".into(), next.to_string());
+        }
+        Some(_) => app.set_status("A photo album holds at most 48 pictures or text boxes"),
+        None => app.set_status("The picture list is invalid"),
+    }
+}
+
+/// Add Pictures… again, for a picker that answered later: the picture joins the Photo Album
+/// dialog if it is still open.
+pub(crate) fn add_album_picture(app: &mut SlideApp) {
+    let Some(mut d) = app.dialog.take_if(|d| d.id == "photoAlbum") else { return };
+    add_picture(app, &mut d);
+    app.dialog = Some(d);
+}
+
 /// Photo Album. Returns true when the dialog should close.
 pub(super) fn photo_album_dialog(app: &mut SlideApp, ui: &mut Ui, d: &mut Dialog) -> bool {
     seed_photo_album(app, d);
@@ -170,19 +193,8 @@ pub(super) fn photo_album_dialog(app: &mut SlideApp, ui: &mut Ui, d: &mut Dialog
         });
         d.fields.insert("sel".into(), sel.to_string());
         ui.horizontal(|ui| {
-            if ui.button("Add Pictures…").clicked()
-                && let Some(item) = pick_album_picture(app)
-            {
-                match album_items(d) {
-                    Some(mut list) if list.len() < 48 => {
-                        list.push(item);
-                        let next = list.len().saturating_sub(1);
-                        store_album_items(d, &list);
-                        d.fields.insert("sel".into(), next.to_string());
-                    }
-                    Some(_) => app.set_status("A photo album holds at most 48 pictures or text boxes"),
-                    None => app.set_status("The picture list is invalid"),
-                }
+            if ui.button("Add Pictures…").clicked() {
+                add_picture(app, d);
             }
             if ui.button("New Text Box").clicked() {
                 let text = d.get("boxText", "Text Box");

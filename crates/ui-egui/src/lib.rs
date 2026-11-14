@@ -336,6 +336,10 @@ pub struct SlideApp {
     next_file_id: u64,
     /// Picks and drops whose bytes have not arrived yet.
     pending_files: Vec<PendingFile>,
+    /// What asked for a picker that answers later ([`Services::picked_later`]).
+    asked: Option<app::files::Again>,
+    /// That picker's answer, while what asked for it runs again.
+    picked: Option<String>,
     /// The empty presentation host mode starts with ([`SlideApp::start_for_host`]), until the
     /// first file the page sends takes its place.
     host_start: Option<u64>,
@@ -465,6 +469,8 @@ mod huge_deck_tests;
 mod ime_tests;
 #[cfg(test)]
 mod last_color_tests;
+#[cfg(test)]
+mod picked_later_tests;
 #[cfg(test)]
 mod presenter_tests;
 #[cfg(test)]

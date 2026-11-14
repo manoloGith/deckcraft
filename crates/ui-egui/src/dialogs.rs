@@ -216,6 +216,7 @@ mod hyperlink;
 mod language;
 mod paragraph;
 mod photo_album;
+pub(crate) use photo_album::add_album_picture;
 mod preferences;
 mod size_position;
 mod slide_size;

@@ -32,14 +32,7 @@ pub(super) fn background(app: &mut SlideApp, ui: &mut Ui) {
                     g.rotate_with_shape = false;
                     run(app, "design.background", json!({"gradient": crate::fillui::gradient_json(&g)}));
                 }
-                "picture" => {
-                    if let Some(pick) = app.services.pick_open.as_mut()
-                        && let Some(path) = pick("picture")
-                        && let Some(Ok(bytes)) = app.services.read.as_ref().map(|r| r(&path))
-                    {
-                        let _ = app.run("design.background", json!({"picture": deckcraft_engine::cmd::base64_encode(&bytes)}));
-                    }
-                }
+                "picture" => pick_background_picture(app),
                 "pattern" => run(app, "design.background", json!({"pattern": {"preset": "pct20", "fg": "accent1", "bg": "bg1"}})),
                 _ => run(app, "design.background", json!({"reset": true})),
             }
@@ -76,12 +69,8 @@ pub(super) fn background(app: &mut SlideApp, ui: &mut Ui) {
             }
         }
         Some(Fill::Picture(pf)) => {
-            if ui.button("Insert picture from file…").clicked()
-                && let Some(pick) = app.services.pick_open.as_mut()
-                && let Some(path) = pick("picture")
-                && let Some(Ok(bytes)) = app.services.read.as_ref().map(|r| r(&path))
-            {
-                let _ = app.run("design.background", json!({"picture": deckcraft_engine::cmd::base64_encode(&bytes)}));
+            if ui.button("Insert picture from file…").clicked() {
+                pick_background_picture(app);
             }
             picture_background_options(app, ui, pf);
         }
@@ -112,6 +101,15 @@ pub(super) fn background(app: &mut SlideApp, ui: &mut Ui) {
 
 /// Render picture-fill background controls and route transparency, tiling, and tile geometry
 /// changes through the engine.
+/// Asks for a picture file and makes it the slide's background.
+pub(crate) fn pick_background_picture(app: &mut SlideApp) {
+    if let Some(path) = app.pick_open("picture", crate::app::files::Again::BackgroundPicture)
+        && let Some(Ok(bytes)) = app.services.read.as_ref().map(|r| r(&path))
+    {
+        let _ = app.run("design.background", json!({"picture": deckcraft_engine::cmd::base64_encode(&bytes)}));
+    }
+}
+
 fn picture_background_options(app: &mut SlideApp, ui: &mut Ui, pf: &deckcraft_model::style::PictureFill) {
     use deckcraft_model::style::PictureMode;
     let alpha = pf.alpha.unwrap_or(1.0);
