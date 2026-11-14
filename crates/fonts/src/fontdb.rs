@@ -630,6 +630,11 @@ pub fn system_font_dirs() -> Vec<std::path::PathBuf> {
             dirs.push(l.join("Microsoft\\FontCache\\4\\CloudFonts"));
         }
     } else {
+        // Android keeps its fonts here (Roboto, Noto and the CJK, Arabic, Hebrew and Thai faces)
+        // and has no fontconfig.
+        if cfg!(target_os = "android") {
+            dirs.extend(["/system/fonts", "/product/fonts"].map(Into::into));
+        }
         dirs.extend(["/usr/share/fonts", "/usr/local/share/fonts"].map(Into::into));
         if let Some(h) = &home {
             dirs.push(h.join(".fonts"));
