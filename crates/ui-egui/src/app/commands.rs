@@ -228,9 +228,10 @@ impl SlideApp {
             "app.about" => self.dialog = Some(dialogs::Dialog::new("about")),
             "app.checkUpdates" => {
                 // The desktop self-update can't replace an Android app.
-                #[cfg(target_os = "android")]
-                return Err("updates come from the store or installer this app was installed with".into());
-                #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+                if cfg!(target_os = "android") {
+                    return Err("updates come from the store or installer this app was installed with".into());
+                }
+                #[cfg(not(target_arch = "wasm32"))]
                 updates_ui::request_check(self);
                 #[cfg(target_arch = "wasm32")]
                 return Err("updates are handled by the browser: reload the page".into());
