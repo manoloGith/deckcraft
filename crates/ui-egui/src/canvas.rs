@@ -280,6 +280,10 @@ pub fn show(app: &mut SlideApp, ui: &mut Ui) {
         app.canvas_region = Some(at);
         painter.image(tex.id(), at, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
     }
+    // Dark paper is the dark canvas's own grey: an edge keeps the slide apart from it.
+    if crate::dark_paper::get().is_some() && t.dark {
+        painter.rect_stroke(slide_rect, CornerRadius::ZERO, Stroke::new(1.0, t.border), egui::StrokeKind::Outside);
+    }
     app.perf.render_ms = app.textures.last_render_ms;
     media_frames(app, &painter, xf);
     // Notes Master view: the current slide inside the slide-image placeholder, as in PowerPoint.
