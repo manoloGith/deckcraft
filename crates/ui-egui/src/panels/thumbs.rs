@@ -392,6 +392,7 @@ fn master_list(app: &mut SlideApp, ui: &mut Ui) {
                         scale: px.0 as f64 / doc.slide_size.width.max(1.0),
                         edit: true,
                         size: Some(px),
+                        dark_paper: crate::dark_paper::get(),
                         ..Default::default()
                     },
                 );

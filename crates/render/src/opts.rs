@@ -71,6 +71,9 @@ pub struct RenderOpts<'a> {
     /// only what is on the slide is drawn over transparency: PNG export with a transparent
     /// background. Shapes filled with the background (`useBgFill`) still show it.
     pub transparent_background: bool,
+    /// Draw a slide on light paper in dark grey with light ink ([`crate::DarkPaper`]): the
+    /// editor in a dark theme. Never for exports, printing or the show.
+    pub dark_paper: Option<crate::DarkPaper>,
 }
 
 impl Default for RenderOpts<'_> {
@@ -91,6 +94,7 @@ impl Default for RenderOpts<'_> {
             date_text: None,
             now: None,
             transparent_background: false,
+            dark_paper: None,
         }
     }
 }

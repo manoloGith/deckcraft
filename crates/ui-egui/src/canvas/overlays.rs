@@ -115,7 +115,10 @@ fn text_overlays(st: &DocState, ui: &Ui, painter: &egui::Painter, xf: Xf, t: &To
             // An empty placeholder shows the caret where typing begins too.
             if blink && let Some((top, bot)) = deckcraft_engine::cmd::text::caret_line(st, ts) {
                 // In the colour of the text being typed: a black caret is lost on a dark slide.
-                let color = deckcraft_engine::cmd::text::caret_color(st, ts).map_or(t.caret, theme::to_color32);
+                // On dark paper, black text is drawn in the paper's ink, and so is its caret.
+                let color = deckcraft_engine::cmd::text::caret_color(st, ts)
+                    .map(|c| crate::dark_paper::get().map_or(c, |dp| dp.map(c)))
+                    .map_or(t.caret, theme::to_color32);
                 painter.line_segment([xf.to_screen(top), xf.to_screen(bot)], Stroke::new(1.5, color));
             }
         }

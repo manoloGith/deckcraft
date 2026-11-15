@@ -289,7 +289,7 @@ impl Textures {
             master: master.as_ref().map(|m| Arc::as_ptr(m) as usize).unwrap_or(0),
             size,
             edit,
-            extra: extra ^ grayscale as u64 ^ anim_key(anim),
+            extra: extra ^ grayscale as u64 ^ anim_key(anim) ^ crate::dark_paper::key(),
             want,
             editing_text,
         };
@@ -311,6 +311,7 @@ impl Textures {
                 size: Some(region.size()),
                 state,
                 editing_text,
+                dark_paper: crate::dark_paper::get(),
                 ..Default::default()
             };
             deckcraft_render::render_slide_drawn(p, index, &opts)
@@ -382,7 +383,7 @@ impl Textures {
             master: master.as_ref().map(|m| Arc::as_ptr(m) as usize).unwrap_or(0),
             size: (width_px, h),
             edit: false,
-            extra: grayscale as u64,
+            extra: grayscale as u64 ^ crate::dark_paper::key(),
             want: Region::slide(width_px, h),
             editing_text: None,
         };
@@ -402,7 +403,11 @@ impl Textures {
         *budget -= 1;
         let (tw, th) = fit_size((width_px, h), max_side(ctx));
         let scale = tw as f64 / p.slide_size.width.max(1.0);
-        let img = deckcraft_render::render_slide(p, index, &RenderOpts { scale, size: Some((tw, th)), threads: 0, ..Default::default() });
+        let img = deckcraft_render::render_slide(
+            p,
+            index,
+            &RenderOpts { scale, size: Some((tw, th)), threads: 0, dark_paper: crate::dark_paper::get(), ..Default::default() },
+        );
         self.thumb_renders += 1;
         let tex = upload_editor(ctx, format!("thumb-{index}"), to_color_image(&img, grayscale));
         // Drop the old entry for this slide address; entries for slides that no longer exist age out.

@@ -335,6 +335,22 @@ fn row_heights_with_def(rctx: &Ctx, style_def: Option<&TableStyleDef>, t: &Table
 
 /// Cell rectangles in table-local space, honouring merges: (row, col, rect) for visible cells.
 /// `heights` are the drawn row heights ([`row_heights`]).
+/// Whether a cell's fill reads as paper ([`crate::dark_paper::is_paper`]): its own, else its
+/// table style's.
+fn cell_is_paper(rctx: &Ctx, def: Option<&TableStyleDef>, t: &Table, r: usize, c: usize, cell: &Cell) -> bool {
+    use crate::dark_paper::is_paper;
+    match &cell.fill {
+        Some(f) => is_paper(rctx, Some(f), None),
+        None => {
+            let lk = look_with_def(rctx, def, t, r, c);
+            match &lk.paint {
+                Some((f, ph)) => is_paper(rctx, Some(f), *ph),
+                None => lk.fill.is_none_or(|f| f.a == 0 || is_paper(rctx, Some(&Fill::solid(deckcraft_model::style::ColorRef::rgb(f))), None)),
+            }
+        }
+    }
+}
+
 pub fn cell_rects(t: &Table, heights: &[f64]) -> Vec<(usize, usize, Rect)> {
     let mut out = vec![];
     let xs = edges(&t.cols);
@@ -480,6 +496,8 @@ pub fn draw(
         if editing {
             crate::preview_empty_bullets(&mut l);
         }
+        // Dark paper: text in a cell with a colour of its own keeps its colour.
+        let _hold = crate::dark_paper::Hold::when(!cell_is_paper(rctx, style_def, t, *r, *c, cell));
         crate::draw_layout(ctx, &l, *rect, m);
         let _ = peniko::Fill::NonZero;
     }

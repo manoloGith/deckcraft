@@ -108,7 +108,7 @@ pub fn show(app: &mut SlideApp, ctx: &egui::Context) {
                 egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas).inner_margin(egui::Margin::same(16))).show(ui, |ui| {
                     let avail = ui.available_rect_before_wrap();
                     let (w, h) = pixel_size(&doc, avail.width());
-                    let tex = ensure_texture(app, ui.ctx(), &doc, (uid, revision, slide, w, h, grayscale));
+                    let tex = ensure_texture(app, ui.ctx(), &doc, (uid, revision ^ crate::dark_paper::key(), slide, w, h, grayscale));
                     if let Some(tex) = tex {
                         let fitted = fit_rect(avail, w, h);
                         ui.painter().rect_filled(fitted, CornerRadius::ZERO, Color32::WHITE);
@@ -155,7 +155,14 @@ fn ensure_texture(app: &mut SlideApp, ctx: &egui::Context, doc: &deckcraft_model
     let img = deckcraft_render::render_slide(
         doc,
         slide,
-        &RenderOpts { scale: w as f64 / doc.slide_size.width.max(1.0), size: Some((w, h)), edit: true, threads: 0, ..Default::default() },
+        &RenderOpts {
+            scale: w as f64 / doc.slide_size.width.max(1.0),
+            size: Some((w, h)),
+            edit: true,
+            threads: 0,
+            dark_paper: crate::dark_paper::get(),
+            ..Default::default()
+        },
     );
     let tex = crate::textures::upload(ctx, "doc-window-slide", crate::textures::to_color_image(&img, grayscale));
     if let Some(win) = app.doc_window.as_mut() {

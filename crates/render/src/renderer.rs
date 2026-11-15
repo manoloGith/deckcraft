@@ -173,6 +173,8 @@ impl Renderer {
         let (mut ctx, w, h, view) = Self::canvas(pres, opts, needs_filters(pres, slide));
         let f = Frame { pres, opts, fields: Self::fields(pres, index, opts) };
         if let Some(rctx) = Ctx::for_slide(pres, slide) {
+            let (bg, ph) = resolve::background(&rctx, Some(slide));
+            let _dark = crate::dark_paper::Drawing::start(opts.dark_paper, crate::dark_paper::is_paper(&rctx, Some(&bg), ph));
             self.backdrop(&mut ctx, &f, &rctx, slide, view);
             for s in &slide.shapes {
                 self.shape(&mut ctx, &f, &rctx, s, view, 0);
@@ -278,6 +280,8 @@ impl Renderer {
             match li.and_then(|i| m.layouts.get(i)) {
                 Some(l) => {
                     let c = Ctx::for_layout(pres, m, l);
+                    let (bg, ph) = resolve::background(&c, None);
+                    let _dark = crate::dark_paper::Drawing::start(opts.dark_paper, crate::dark_paper::is_paper(&c, Some(&bg), ph));
                     self.background(&mut ctx, &f, &c, None, view);
                     if l.show_master_shapes {
                         let mc = Ctx::for_master(pres, m);
@@ -291,6 +295,8 @@ impl Renderer {
                 }
                 None => {
                     let c = Ctx::for_master(pres, m);
+                    let (bg, ph) = resolve::background(&c, None);
+                    let _dark = crate::dark_paper::Drawing::start(opts.dark_paper, crate::dark_paper::is_paper(&c, Some(&bg), ph));
                     self.background(&mut ctx, &f, &c, None, view);
                     for s in &m.shapes {
                         self.shape(&mut ctx, &f, &c, s, view, 0);
@@ -437,6 +443,12 @@ impl Renderer {
         if !x.is_finite() {
             return;
         }
+        // Dark paper: a shape with a fill of its own that is not paper keeps its colours and
+        // those of everything on it (white text on a blue box).
+        let _hold = {
+            let (fill, ph) = resolve::fill(rctx, s);
+            crate::dark_paper::Hold::when(!crate::dark_paper::is_paper(rctx, fill.as_ref(), ph))
+        };
         let mut m = parent * x.affine();
         if st.offset != Vec2::ZERO || st.scale != (1.0, 1.0) || st.rotate != 0.0 {
             let c = Point::new(x.w / 2.0, x.h / 2.0);

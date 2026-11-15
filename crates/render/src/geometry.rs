@@ -1,6 +1,8 @@
 use super::*;
 
 pub(crate) fn color(c: Rgba, alpha: f64) -> peniko::Color {
+    // Dark paper (the editor in a dark theme): every vector paint goes through here.
+    let c = crate::dark_paper::paint(c);
     let a = (c.a as f64 * alpha.clamp(0.0, 1.0)).round().clamp(0.0, 255.0) as u8;
     peniko::Color::from_rgba8(c.r, c.g, c.b, a)
 }

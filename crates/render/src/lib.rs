@@ -60,6 +60,7 @@ pub use table::cell_rects as table_cell_rects;
 pub use table::row_heights as table_row_heights;
 pub use transition::{SlideParts, composite_transition, render_transition};
 
+mod dark_paper;
 mod geometry;
 mod opts;
 mod raster;
@@ -68,6 +69,7 @@ mod slide;
 mod stroke;
 mod text_draw;
 
+pub use dark_paper::DarkPaper;
 use geometry::shade;
 pub use geometry::{camera_turn, crop_dest, parse_path, shape_geometry};
 pub(crate) use geometry::{color, scale_of};

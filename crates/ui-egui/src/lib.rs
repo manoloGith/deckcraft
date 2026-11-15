@@ -19,6 +19,7 @@ pub mod backstage;
 pub mod canvas;
 pub mod capture;
 pub mod control;
+pub mod dark_paper;
 pub mod dialogs;
 pub mod doc_window;
 pub mod eyedropper;

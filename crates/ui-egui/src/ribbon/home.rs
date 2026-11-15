@@ -68,6 +68,7 @@ pub(super) fn layout_menu(app: &mut SlideApp, ui: &mut Ui, cmd: &str) {
                             scale: 192.0 / d.doc.slide_size.width.max(1.0),
                             edit: true,
                             size: Some((192, 108)),
+                            dark_paper: crate::dark_paper::get(),
                             ..Default::default()
                         },
                     );
